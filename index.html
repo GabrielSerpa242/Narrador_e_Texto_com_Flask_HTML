@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Narrador de Textos Longos</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 20px;
+      background: #f7f7f7;
+    }
+    textarea {
+      width: 100%;
+      height: 200px;
+      margin-bottom: 10px;
+      font-size: 16px;
+      padding: 10px;
+      resize: vertical;
+    }
+    select, input[type="range"] {
+      width: 100%;
+      margin-bottom: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      background: #007bff;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>Narrador de Textos Longos</h1>
+
+  <textarea id="texto" rows="5" cols="50"></textarea>
+  <button id="falar">Falar</button>
+  <button id="parar">Parar</button>
+  <button id="baixar">Baixar Áudio</button>
+  <select id="vozes"></select>
+
+  <label>Volume:</label>
+  <input type="number" id="volume" min="0" max="100" step="1" value="1">
+
+  <label>velocidade:</label>
+  <input type="number" id="velocidade" min="0" max="3" step="0.1" value="1">
+
+  <label>Tom (Pitch):</label>
+  <input type="number" id="pitch" min="0" max="2" step="0.1" value="1">
+
+  
+    <select id="vozes"></select>
+    <script>
+    const texto = document.getElementById('texto');
+    const falarBtn = document.getElementById('falar');
+    const pararBtn = document.getElementById('parar');
+    const baixarBtn = document.getElementById('baixar');
+    const vozesSelect = document.getElementById('vozes');
+    const velocidade = document.getElementById('velocidade');
+    const pitch = document.getElementById('pitch');
+        
+    let synth = window.speechSynthesis;
+    let vozes = [];
+
+    function populaVozes() {
+        const selectedVoice = vozesSelect.value;
+        vozes = synth.getVoices();
+        vozesSelect.innerHTML = '';
+        vozes.forEach((voz) => {
+        const option = document.createElement('option');
+        option.value = voz.voiceURI;
+        option.textContent = `${voz.name} (${voz.lang})`;
+        vozesSelect.appendChild(option);
+        const volume = document.getElementById('volume');
+        const velocidade = document.getElementById('velocidade');
+        const pitch = document.getElementById('pitch');
+      });
+      if (selectedVoice) {
+          vozesSelect.value = selectedVoice;
+       }     
+      }
+       if (synth.onvoiceschanged !== undefined) {
+            synth.onvoiceschanged = populaVozes;
+        }
+
+    populaVozes();
+    synth.onvoiceschanged = populaVozes;
+
+    falarBtn.addEventListener('click', () => {
+      const utter = new SpeechSynthesisUtterance(texto.value);
+      const selectedVoiceURI = vozesSelect.value;
+      const selectedVoice = vozes.find(voz => voz.voiceURI === selectedVoiceURI);
+      if (selectedVoice) utter.voice = selectedVoice;
+      utter.volume = parseFloat(volume.value);
+      utter.rate = parseFloat(velocidade.value);
+      utter.pitch = parseFloat(pitch.value);
+
+      synth.speak(utter);
+    });
+
+    pararBtn.addEventListener('click', () => {
+    synth.cancel();
+  });
+    baixarBtn.addEventListener('click', () => {
+    const conteudo = texto.value;
+    if (!conteudo) {
+      alert("Digite algum texto para gerar o áudio.");
+      return;
+    }
+      fetch('http://127.0.0.1:5000/gerar-audio', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ texto: conteudo })
+    })
+    
+    .then(response => {
+      if (!response.ok) throw new Error('Erro ao gerar o áudio');
+      return response.blob();
+    })
+      .then(blob => {
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.style.display = 'none';
+      a.href = url;
+      a.download = 'narracao.mp3';
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+    })
+    .catch(error => {
+      console.error(error);
+      alert('Falha ao gerar ou baixar o áudio.');
+    });
+  });
+  </script>
+</body>
+</html>
